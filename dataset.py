@@ -206,6 +206,8 @@ if __name__ == "__main__":
     from utils.utils import to_device
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cpu")
+
     preprocess_config = yaml.load(
         open("./config/LJSpeech/preprocess.yaml", "r"), Loader=yaml.FullLoader
     )

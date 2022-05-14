@@ -1,5 +1,6 @@
 import os
 import json
+from tokenize import Number
 
 import torch
 import torch.nn.functional as F
@@ -7,13 +8,13 @@ import numpy as np
 import matplotlib
 from scipy.io import wavfile
 from matplotlib import pyplot as plt
-
+from typing import Optional
 
 matplotlib.use("Agg")
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+device = torch.device("cpu")
 
 def to_device(data, device):
     if len(data) == 12:
@@ -87,17 +88,26 @@ def log(
             sample_rate=sampling_rate,
         )
 
-
-def get_mask_from_lengths(lengths, max_len=None):
+# from typing import Number
+def get_mask_from_lengths(lengths, max_len : Optional[int]=None):
     batch_size = lengths.shape[0]
     if max_len is None:
         max_len = torch.max(lengths).item()
 
-    ids = torch.arange(0, max_len).unsqueeze(0).expand(batch_size, -1).to(device)
+    ids = torch.arange(0, max_len).unsqueeze(0).expand(batch_size, -1)
     mask = ids >= lengths.unsqueeze(1).expand(-1, max_len)
 
     return mask
 
+def get_mask_from_lengths_without_max_len(lengths):
+    batch_size = lengths.shape[0]
+    # if max_len is None:
+    max_len = torch.max(lengths).item()
+
+    ids = torch.arange(0, max_len).unsqueeze(0).expand(batch_size, -1)
+    mask = ids >= lengths.unsqueeze(1).expand(-1, max_len)
+
+    return mask
 
 def expand(values, durations):
     out = list()
@@ -295,22 +305,24 @@ def pad_2D(inputs, maxlen=None):
 
     return output
 
+from typing import List
 
-def pad(input_ele, mel_max_length=None):
+def pad(input_ele: List[torch.Tensor], mel_max_length:int=0):
     if mel_max_length:
         max_len = mel_max_length
     else:
         max_len = max([input_ele[i].size(0) for i in range(len(input_ele))])
 
     out_list = list()
+    one_batch_padded : torch.Tensor = torch.tensor([0])
     for i, batch in enumerate(input_ele):
         if len(batch.shape) == 1:
             one_batch_padded = F.pad(
-                batch, (0, max_len - batch.size(0)), "constant", 0.0
+                batch, [0, max_len - batch.size(0)], "constant", 0.0
             )
         elif len(batch.shape) == 2:
             one_batch_padded = F.pad(
-                batch, (0, 0, 0, max_len - batch.size(0)), "constant", 0.0
+                batch, [0, 0, 0, max_len - batch.size(0)], "constant", 0.0
             )
         out_list.append(one_batch_padded)
     out_padded = torch.stack(out_list)

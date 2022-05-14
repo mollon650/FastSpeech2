@@ -6,9 +6,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from transformer import Encoder, Decoder, PostNet
-from .modules import VarianceAdaptor
+from model.modules import VarianceAdaptor
 from utils.tools import get_mask_from_lengths
 
+from typing import Optional
 
 class FastSpeech2(nn.Module):
     """ FastSpeech2 """
@@ -45,24 +46,30 @@ class FastSpeech2(nn.Module):
         speakers,
         texts,
         src_lens,
-        max_src_len,
-        mels=None,
-        mel_lens=None,
-        max_mel_len=None,
-        p_targets=None,
-        e_targets=None,
-        d_targets=None,
-        p_control=1.0,
-        e_control=1.0,
-        d_control=1.0,
+        max_src_len:int,
+        mels : Optional[torch.Tensor]=None,
+        mel_lens : Optional[torch.Tensor]=None,
+        max_mel_len : Optional[int]=None,
+        p_targets : Optional[torch.Tensor]=None,
+        e_targets : Optional[torch.Tensor]=None,
+        d_targets : Optional[torch.Tensor]=None,
+        p_control:float=1.0,
+        e_control:float=1.0,
+        d_control:float=1.0,
     ):
         src_masks = get_mask_from_lengths(src_lens, max_src_len)
-        mel_masks = (
-            get_mask_from_lengths(mel_lens, max_mel_len)
-            if mel_lens is not None
-            else None
-        )
-
+        # mel_masks = (
+        #     get_mask_from_lengths(mel_lens, max_mel_len)
+        #     if mel_lens is not None
+        #     else None
+        # )
+        # mel_masks: 
+  
+        if mel_lens is not None:
+            mel_masks = get_mask_from_lengths(mel_lens, max_mel_len)
+        else:
+            mel_masks = None
+            
         output = self.encoder(texts, src_masks)
 
         if self.speaker_emb is not None:
@@ -77,7 +84,7 @@ class FastSpeech2(nn.Module):
             log_d_predictions,
             d_rounded,
             mel_lens,
-            mel_masks,
+            mel_masks_,
         ) = self.variance_adaptor(
             output,
             src_masks,
@@ -91,7 +98,7 @@ class FastSpeech2(nn.Module):
             d_control,
         )
 
-        output, mel_masks = self.decoder(output, mel_masks)
+        output, mel_masks_ = self.decoder(output, mel_masks_)
         output = self.mel_linear(output)
 
         postnet_output = self.postnet(output) + output
@@ -104,7 +111,81 @@ class FastSpeech2(nn.Module):
             log_d_predictions,
             d_rounded,
             src_masks,
-            mel_masks,
+            mel_masks_,
             src_lens,
             mel_lens,
         )
+    # def forward(
+    #     self,
+    #     speakers,
+    #     texts,
+    #     src_lens,
+    #     max_src_len:int
+    # ):
+    #     mels: Optional[torch.Tensor]=None
+    #     mel_lens: Optional[torch.Tensor]=None
+    #     max_mel_len: Optional[int]=None
+    #     p_targets: Optional[torch.Tensor]=None
+    #     e_targets: Optional[torch.Tensor]=None
+    #     d_targets: Optional[torch.Tensor]=None
+    #     p_control: float=1.0
+    #     e_control: float=1.0
+    #     d_control: float=1.0
+    #     src_masks = get_mask_from_lengths(src_lens, max_src_len)
+    #     # mel_masks = (
+    #     #     get_mask_from_lengths(mel_lens, max_mel_len)
+    #     #     if mel_lens is not None
+    #     #     else None
+    #     # )
+    #     # mel_masks: 
+
+    #     if mel_lens is not None:
+    #         mel_masks = get_mask_from_lengths(mel_lens, max_mel_len)
+    #     else:
+    #         mel_masks = None
+            
+    #     output = self.encoder(texts, src_masks)
+
+    #     if self.speaker_emb is not None:
+    #         output = output + self.speaker_emb(speakers).unsqueeze(1).expand(
+    #             -1, max_src_len, -1
+    #         )
+
+    #     (
+    #         output,
+    #         p_predictions,
+    #         e_predictions,
+    #         log_d_predictions,
+    #         d_rounded,
+    #         mel_lens,
+    #         mel_masks_,
+    #     ) = self.variance_adaptor(
+    #         output,
+    #         src_masks,
+    #         mel_masks,
+    #         max_mel_len,
+    #         p_targets,
+    #         e_targets,
+    #         d_targets,
+    #         p_control,
+    #         e_control,
+    #         d_control,
+    #     )
+
+    #     output, mel_masks_ = self.decoder(output, mel_masks_)
+    #     output = self.mel_linear(output)
+
+    #     postnet_output = self.postnet(output) + output
+
+    #     return (
+    #         output,
+    #         postnet_output,
+    #         p_predictions,
+    #         e_predictions,
+    #         log_d_predictions,
+    #         d_rounded,
+    #         src_masks,
+    #         mel_masks_,
+    #         src_lens,
+    #         mel_lens,
+    #     )

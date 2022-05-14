@@ -3,7 +3,7 @@ import torch.nn.functional as F
 import numpy as np
 
 from .Modules import ScaledDotProductAttention
-
+import torch
 
 class MultiHeadAttention(nn.Module):
     """ Multi-Head Attention module """
@@ -26,7 +26,7 @@ class MultiHeadAttention(nn.Module):
 
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, q, k, v, mask=None):
+    def forward(self, q, k, v,  mask : torch.Tensor=torch.Tensor()):
 
         d_k, d_v, n_head = self.d_k, self.d_v, self.n_head
 

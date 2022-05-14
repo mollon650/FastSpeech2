@@ -18,7 +18,7 @@ class FFTBlock(torch.nn.Module):
             d_model, d_inner, kernel_size, dropout=dropout
         )
 
-    def forward(self, enc_input, mask=None, slf_attn_mask=None):
+    def forward(self, enc_input,  mask : torch.Tensor=torch.Tensor(), slf_attn_mask : torch.Tensor=torch.Tensor()):
         enc_output, enc_slf_attn = self.slf_attn(
             enc_input, enc_input, enc_input, mask=slf_attn_mask
         )
@@ -129,9 +129,13 @@ class PostNet(nn.Module):
     def forward(self, x):
         x = x.contiguous().transpose(1, 2)
 
-        for i in range(len(self.convolutions) - 1):
-            x = F.dropout(torch.tanh(self.convolutions[i](x)), 0.5, self.training)
+        # for i in range(len(self.convolutions) - 1):
+        #     x = F.dropout(torch.tanh(self.convolutions[i](x)), 0.5, self.training)
+        
+        for i, l in enumerate(self.convolutions):
+            if(i != len(self.convolutions)-1):
+                x = F.dropout(torch.tanh(l(x)), 0.5, self.training)
         x = F.dropout(self.convolutions[-1](x), 0.5, self.training)
-
+        
         x = x.contiguous().transpose(1, 2)
         return x

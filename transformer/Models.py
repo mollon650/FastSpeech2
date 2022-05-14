@@ -1,3 +1,4 @@
+from typing import List
 import torch
 import torch.nn as nn
 import numpy as np
@@ -5,30 +6,89 @@ import numpy as np
 import transformer.Constants as Constants
 from .Layers import FFTBlock
 from text.symbols import symbols
+from typing import Optional
+
+# def get_sinusoid_encoding_table(n_position: int, d_hid: int, padding_idx: int=0):
+#     """ Sinusoid position encoding table """
+
+#     # def cal_angle(position, hid_idx):
+#     #     x_ = position / np.power(10000, 2 * (hid_idx // 2) / d_hid)
+#     #     return x_
+
+#     # def get_posi_angle_vec(position):
+#     #     return [cal_angle(position, hid_j) for hid_j in range(d_hid)]
+
+#     # sinusoid_table = np.array(
+#     #     [get_posi_angle_vec(pos_i) for pos_i in range(n_position)]
+#     # )
+    
+#     # x1 = list()
+#     # x2 = list()
+#     # x3 = list()
+#     x2 : List[List[int]] = []
+#     x1 : List[int] = []
+#     # x2 = []
+#     for pos_i in range(n_position):
+#         x1.clear()
+#         for hid_j in range(d_hid):
+#             #x_ = pos_i / np.power(10000, 2 * (hid_j // 2) / d_hid)
+#             x_ = pos_i
+#             x1.append(x_)
+#         x2.append(x1)
+#     # x3.append(x2)
+#     sinusoid_table = x2
+#     # sinusoid_table[:, 0::2] = np.sin(sinusoid_table[:, 0::2])  # dim 2i
+#     # sinusoid_table[:, 1::2] = np.cos(sinusoid_table[:, 1::2])  # dim 2i+1
+
+#     #if padding_idx is not None:
+#         # zero vector for padding dimension
+#     #    sinusoid_table[padding_idx] = 0.0
+
+#     return torch.tensor(sinusoid_table)
 
 
-def get_sinusoid_encoding_table(n_position, d_hid, padding_idx=None):
+def get_sinusoid_encoding_table(n_position: int, d_hid: int, padding_idx: int=0):
     """ Sinusoid position encoding table """
 
-    def cal_angle(position, hid_idx):
-        return position / np.power(10000, 2 * (hid_idx // 2) / d_hid)
+    # def cal_angle(position, hid_idx):
+    #     x_ = position / np.power(10000, 2 * (hid_idx // 2) / d_hid)
+    #     return x_
 
-    def get_posi_angle_vec(position):
-        return [cal_angle(position, hid_j) for hid_j in range(d_hid)]
+    # def get_posi_angle_vec(position):
+    #     return [cal_angle(position, hid_j) for hid_j in range(d_hid)]
 
-    sinusoid_table = np.array(
-        [get_posi_angle_vec(pos_i) for pos_i in range(n_position)]
-    )
-
-    sinusoid_table[:, 0::2] = np.sin(sinusoid_table[:, 0::2])  # dim 2i
-    sinusoid_table[:, 1::2] = np.cos(sinusoid_table[:, 1::2])  # dim 2i+1
+    # sinusoid_table = np.array(
+    #     [get_posi_angle_vec(pos_i) for pos_i in range(n_position)]
+    # )
+    
+    # x1 = list()
+    # x2 = list()
+    # x3 = list()
+    x2 : List[List[float]] = []
+    x1 : List[float] = []
+    # x2 = []
+    for pos_i in range(n_position):
+        x1.clear()
+        for hid_j in range(d_hid):
+            temp= 2 * (hid_j // 2) / d_hid
+            _ = 10000 ** temp
+            #_ = np.power(10000, temp)
+            x_ = pos_i / float(_)
+            #x_ = 1.0
+            x1.append(x_)
+        x2.append(x1)
+    # x3.append(x2)
+    sinusoid_table = torch.tensor(x2)
+    sinusoid_table[:,0::2] = torch.sin(sinusoid_table[:, 0::2])
+    sinusoid_table[:,1::2] = torch.cos(sinusoid_table[:, 1::2])
+    #sinusoid_table[:, 0::2] = np.sin(sinusoid_table[:, 0::2])  # dim 2i
+    # sinusoid_table[:, 1::2] = np.cos(sinusoid_table[:, 1::2])  # dim 2i+1
 
     if padding_idx is not None:
         # zero vector for padding dimension
-        sinusoid_table[padding_idx] = 0.0
+       sinusoid_table[padding_idx] = 0.0
 
-    return torch.FloatTensor(sinusoid_table)
-
+    return torch.tensor(sinusoid_table)
 
 class Encoder(nn.Module):
     """ Encoder """
@@ -70,7 +130,7 @@ class Encoder(nn.Module):
             ]
         )
 
-    def forward(self, src_seq, mask, return_attns=False):
+    def forward(self, src_seq, mask, return_attns: bool=False):
 
         enc_slf_attn_list = []
         batch_size, max_len = src_seq.shape[0], src_seq.shape[1]
@@ -136,7 +196,7 @@ class Decoder(nn.Module):
             ]
         )
 
-    def forward(self, enc_seq, mask, return_attns=False):
+    def forward(self, enc_seq, mask, return_attns:bool=False):
 
         dec_slf_attn_list = []
         batch_size, max_len = enc_seq.shape[0], enc_seq.shape[1]
@@ -160,7 +220,12 @@ class Decoder(nn.Module):
             ].expand(batch_size, -1, -1)
             mask = mask[:, :max_len]
             slf_attn_mask = slf_attn_mask[:, :, :max_len]
+            # dec_output = enc_seq.index_select(1, torch.arange(max_len)) + \
+            #     self.position_enc.index_select(1, torch.arange(max_len)).expand(batch_size, -1, -1)
 
+            # mask = mask.index_select(1, torch.arange(max_len))
+            # slf_attn_mask = slf_attn_mask.index_select(2, torch.arange(max_len))
+            
         for dec_layer in self.layer_stack:
             dec_output, dec_slf_attn = dec_layer(
                 dec_output, mask=mask, slf_attn_mask=slf_attn_mask

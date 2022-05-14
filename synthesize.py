@@ -15,6 +15,7 @@ from dataset import TextDataset
 from text import text_to_sequence
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")
 
 
 def read_lexicon(lex_path):
