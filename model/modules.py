@@ -127,7 +127,8 @@ class VarianceAdaptor(nn.Module):
     ):
         pitch_prediction:torch.Tensor = torch.tensor([0])
         energy_prediction:torch.Tensor = torch.tensor([0])
-        
+        mel_mask_:torch.Tensor = torch.tensor([0])
+
         log_duration_prediction = self.duration_predictor(x, src_mask)
         if self.pitch_feature_level == "phoneme_level":
             pitch_prediction, pitch_embedding = self.get_pitch_embedding(
@@ -140,16 +141,18 @@ class VarianceAdaptor(nn.Module):
             )
             x = x + energy_embedding
 
-        # if duration_target is not None:
-        #     x, mel_len = self.length_regulator(x, duration_target, max_len)
-        #     duration_rounded = duration_target
-        # else:
-        duration_rounded = torch.clamp(
-            (torch.round(torch.exp(log_duration_prediction) - 1) * d_control),
-            min=0,
-        )
-        x, mel_len = self.length_regulator(x, duration_rounded, max_len)
-        mel_mask_ = get_mask_from_lengths_without_max_len(mel_len)
+        if duration_target is not None:
+            x, mel_len = self.length_regulator(x, duration_target, max_len)
+            duration_rounded = duration_target
+            assert mel_mask is not None
+            mel_mask_ = mel_mask
+        else:
+            duration_rounded = torch.clamp(
+                (torch.round(torch.exp(log_duration_prediction) - 1) * d_control),
+                min=0,
+            )
+            x, mel_len = self.length_regulator(x, duration_rounded, max_len)
+            mel_mask_ = get_mask_from_lengths_without_max_len(mel_len)
 
         if self.pitch_feature_level == "frame_level":
             pitch_prediction, pitch_embedding = self.get_pitch_embedding(
