@@ -25,6 +25,10 @@ class Dataset(Dataset):
             self.speaker_map = json.load(f)
         self.sort = sort
         self.drop_last = drop_last
+        self.tests_max_len = 0
+        self.mels_max_len = 0
+        self.count = 0
+        
 
     def __len__(self):
         return len(self.text)
@@ -103,22 +107,44 @@ class Dataset(Dataset):
         mel_lens = np.array([mel.shape[0] for mel in mels])
 
         speakers = np.array(speakers)
-        texts = pad_1D(texts)
-        mels = pad_2D(mels)
-        pitches = pad_1D(pitches)
-        energies = pad_1D(energies)
-        durations = pad_1D(durations)
-
+        texts, texts_max_len = pad_1D(texts, 125)
+        mels,mels_max_len = pad_2D(mels, 868)
+        pitches, pitches_max_len= pad_1D(pitches, 125)
+        energies,energies_max_len = pad_1D(energies, 125)
+        durations,durations_max_len = pad_1D(durations, 125)
+        print(texts_max_len, mels_max_len, pitches_max_len, energies_max_len, durations_max_len)
+        if(self.mels_max_len <= mels_max_len):
+            self.mels_max_len = mels_max_len
+        
+        if(self.tests_max_len <= texts_max_len):
+            self.tests_max_len = texts_max_len
+        
+        
+        ids_np = np.array(ids)
+        raw_texts_np = np.array(raw_texts)
+        
+        np.save('./evalbin/'+str(self.count)+'raw_texts_np.npy',raw_texts_np)
+        np.save('./evalbin/'+str(self.count)+'ids_np.npy', ids_np)
+        np.save('./evalbin/'+str(self.count)+'speakers.npy', speakers)
+        np.save('./evalbin/'+str(self.count)+'texts.npy', texts)
+        np.save('./evalbin/'+str(self.count)+'text_lens.npy', text_lens)
+        np.save('./evalbin/'+str(self.count)+'mels.npy', mels)
+        np.save('./evalbin/'+str(self.count)+'mel_lens.npy', mel_lens)
+        np.save('./evalbin/'+str(self.count)+'pitches.npy', pitches)
+        np.save('./evalbin/'+str(self.count)+'energies.npy', energies)
+        np.save('./evalbin/'+str(self.count)+'durations.npy', durations)
+        self.count = self.count +1
+        
         return (
             ids,
             raw_texts,
             speakers,
             texts,
             text_lens,
-            max(text_lens),
+            125,
             mels,
             mel_lens,
-            max(mel_lens),
+            868,
             pitches,
             energies,
             durations,

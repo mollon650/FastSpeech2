@@ -43,20 +43,59 @@ def evaluate(model, step, configs, logger=None, vocoder=None):
 
     # Evaluation
     loss_sums = [0 for _ in range(6)]
-    for batchs in loader:
-        for batch in batchs:
-            # export_onnx(model, batch)
-            batch = to_device(batch, device)
-            with torch.no_grad():
-                # Forward
-                output = model(*(batch[2:]))
+    ################################################################
+    # for batchs in loader:
+    #     for batch in batchs:
+    #         # export_onnx(model, batch)
+    #         batch = to_device(batch, device)
+    #         with torch.no_grad():
+    #             # Forward
+    #             output = model(*(batch[2:]))
 
-                # Cal Loss
-                losses = Loss(batch, output)
+    #             # Cal Loss
+    #             losses = Loss(batch, output)
 
-                for i in range(len(losses)):
-                    loss_sums[i] += losses[i].item() * len(batch[0])
+    #             for i in range(len(losses)):
+    #                 loss_sums[i] += losses[i].item() * len(batch[0])
+#####################################################################
+    for i in range(32):
+        raw_texts_np = np.load('./evalbin/'+str(i)+'raw_texts_np.npy')
+        ids_np = np.load('./evalbin/'+str(i)+'ids_np.npy')
+        speakers = np.load('./evalbin/'+str(i)+'speakers.npy')
+        texts = np.load('./evalbin/'+str(i)+'texts.npy')
+        text_lens = np.load('./evalbin/'+str(i)+'text_lens.npy')
+        mels = np.load('./evalbin/'+str(i)+'mels.npy')
+        mel_lens = np.load('./evalbin/'+str(i)+'mel_lens.npy')
+        pitches = np.load('./evalbin/'+str(i)+'pitches.npy')
+        energies = np.load('./evalbin/'+str(i)+'energies.npy')
+        durations = np.load('./evalbin/'+str(i)+'durations.npy')
+        ids = ids_np.tolist()
+        raw_texts = raw_texts_np.tolist()
+        
+        batch =  (ids,
+            raw_texts,
+            speakers,
+            texts,
+            text_lens,
+            125,
+            mels,
+            mel_lens,
+            868,
+            pitches,
+            energies,
+            durations,
+        )
+        batch = to_device(batch, device)
+        with torch.no_grad():
+            # Forward
+            output = model(*(batch[2:]))
 
+            # Cal Loss
+            losses = Loss(batch, output)
+
+            for i in range(len(losses)):
+                loss_sums[i] += losses[i].item() * len(batch[0])
+                
     loss_means = [loss_sum / len(dataset) for loss_sum in loss_sums]
 
     message = "Validation Step {}, Total Loss: {:.4f}, Mel Loss: {:.4f}, Mel PostNet Loss: {:.4f}, Pitch Loss: {:.4f}, Energy Loss: {:.4f}, Duration Loss: {:.4f}".format(
@@ -92,6 +131,7 @@ def evaluate(model, step, configs, logger=None, vocoder=None):
             tag="Validation/step_{}_{}_synthesized".format(step, tag),
         )
 
+    print(dataset.tests_max_len, dataset.mels_max_len)
     return message
 
 def export_onnx(model):
@@ -268,8 +308,11 @@ if __name__ == "__main__":
     # xx = LengthRegulator()
     # scripted_cell = torch.jit.script(LengthRegulator())
     # print(scripted_cell.code)
-    trace_model(model)
+    # trace_model(model)
     # eval_onnx(model)
-    eval_pt(model)
-    message = evaluate(model, args.restore_step, configs)
+    # eval_pt(model)
+    pt_model = torch.jit.load('./xx.pt')
+    pt_model.eval()
+    # message = evaluate(model, args.restore_step, configs)
+    message = evaluate(pt_model, args.restore_step, configs)
     print(message)
